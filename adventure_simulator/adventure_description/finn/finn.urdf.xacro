@@ -7,13 +7,13 @@
 
   <!-- Sensors... FIXME -->
 
-  <xacro:include filename="$(find adventure_description)/urdf/sensors/r200.urdf.xacro"/>
-  <xacro:sensor_r200 parent="base_link">
+  <xacro:include filename="$(find adventure_description)/urdf/sensors/asus_xtion_pro.urdf.xacro"/>
+  <xacro:sensor_asus_xtion_pro parent="base_link">
     <origin xyz="${0.10/2} -0.01 0.10" rpy="0.0 0.0 0.0"/>
-  </xacro:sensor_r200>
+  </xacro:sensor_asus_xtion_pro>
 
 
-  <!-- Generic camera 
+  <!-- Generic camera
   <xacro:include filename="$(find adventure_description)/urdf/sensors/generic_camera.urdf.xacro" />
   <xacro:generic_camera name="generic_camera" parent="base_link" ros_topic="/sensors/generic_camera/image" cam_info_topic="/sensors/generic_camera/camera_info" update_rate="15" res_x="320" res_y="240" image_format="L8" hfov="75">
     <origin xyz="${base_x_size/2-camera_link/2} 0 ${base_z_size/2 + camera_link/2}" rpy="0 0 3.14"/>
