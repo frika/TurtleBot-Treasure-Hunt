@@ -1,16 +1,17 @@
 <?xml version="1.0"?>
 <robot name="sensor_asus_xtion_pro" xmlns:xacro="http://ros.org/wiki/xacro">
   <xacro:include filename="$(find adventure_description)/urdf/sensors/rgbd_gazebo.urdf.xacro"/>
-  
+
   <!-- Xacro properties -->
   <xacro:property name="M_SCALE" value="0.001"/>
   <xacro:property name="asus_xtion_pro_cam_py" value="0.0205"/>
   <xacro:property name="asus_xtion_pro_depth_rel_rgb_py" value="0.0270" />
   <xacro:property name="asus_xtion_pro_cam_rel_rgb_py"   value="-0.0220" />
 
-  <xacro:macro name="sensor_asus_xtion_pro" params="parent">
+  <xacro:macro name="sensor_asus_xtion_pro" params="parent *origin">
     <joint name="camera_rgb_joint" type="fixed">
-        <origin xyz="0 0 0.3" rpy="0 0 0"/>
+        <!--<origin xyz="0 0 0.1" rpy="0 0 0"/>-->
+      <xacro:insert_block name="origin" />
       <parent link="${parent}"/>
       <child link="camera_rgb_frame" />
     </joint>
@@ -24,7 +25,7 @@
     <link name="camera_rgb_optical_frame"/>
 
     <joint name="camera_joint" type="fixed">
-      <origin xyz="0 ${asus_xtion_pro_cam_rel_rgb_py} 0" 
+      <origin xyz="0 ${asus_xtion_pro_cam_rel_rgb_py} 0"
               rpy="0 0 0"/>
       <parent link="camera_rgb_frame"/>
       <child link="camera_link"/>
