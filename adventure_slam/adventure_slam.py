@@ -44,7 +44,7 @@ def laser_callback(scan):
 
     # Convert the laserscan to coordinates
     angle = scan.angle_min
-    points = []    
+    points = []
     for r in scan.ranges:
         theta = angle
         angle += scan.angle_increment
@@ -53,15 +53,17 @@ def laser_callback(scan):
         if (math.isnan(r)):
             continue
 
-        points.append([r * math.sin(theta), r * math.cos(theta)]) 
+        points.append([r * math.sin(theta), r * math.cos(theta)])
 
     # Fit the line
     ## convert points to pcl type
     points = np.array(points, dtype=np.float32)
     pcl_points = np.concatenate((points, np.zeros((len(points), 1))), axis=1)
 
+    min_pcl_points = int(rospy.get_param('min pcl points'))
+    min_inliers = int(rospy.get_param('min inliers'))
     id = 0
-    while len(pcl_points) > 30:
+    while len(pcl_points) > min_pcl_points:
         p = pcl.PointCloud(np.array(pcl_points, dtype=np.float32))
         ## create a segmenter object
         seg = p.make_segmenter()
@@ -73,7 +75,7 @@ def laser_callback(scan):
         indices, model = seg.segment()
         print "Found", len(indices), "inliers", model
 
-        if len(indices) < 20:
+        if len(indices) < min_inliers:
             break
 
         next_points = []
@@ -94,7 +96,7 @@ def laser_callback(scan):
         marker_array.markers.append(get_line((model[1], model[0]), (model[4], model[3]), id))
 
     pub.publish(marker_array)
-      
+
 
 def main():
     rospy.init_node('adventure_slam', anonymous=True)

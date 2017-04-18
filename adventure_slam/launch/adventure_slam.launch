@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 
 <launch>
-  <!-- start Rviz -->
-  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find adventure_gazebo)/launch/adventure.rviz"/>
+  <node name="slam" pkg="adventure_slam" type="adventure_slam.py" output="screen"/>
+  <param name='min pcl points' value='30'/>
+  <param name='min inliers' value='20'/>
 </launch>

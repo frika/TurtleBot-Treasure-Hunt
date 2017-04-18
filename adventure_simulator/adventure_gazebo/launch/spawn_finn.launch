@@ -6,14 +6,14 @@
   <arg name="y" default="0.250"/>
 
   <param name="robot_description" command="$(find xacro)/xacro.py '$(find adventure_description)/finn/finn.urdf.xacro'" />
-  <node name="finn_spawner" pkg="gazebo_ros" type="spawn_model" respawn="false" output="screen" 
+  <node name="finn_spawner" pkg="gazebo_ros" type="spawn_model" respawn="false" output="screen"
         args="-urdf -model finn -param robot_description -x $(arg x) -y $(arg y) -z 0.2 -R 0.0 -P 0.0 -Y 1.57"/>
 
   <!-- publish all the frames to TF -->
   <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher">
     <param name="publish_frequency" value="50"/> <!-- Hz -->
   </node>
-  
+
   <!-- source that publishes the joint positions as a sensor_msgs/JointState -->
   <param name="use_gui" value="false"/>
   <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
