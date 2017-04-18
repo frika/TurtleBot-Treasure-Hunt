@@ -58,26 +58,41 @@ def laser_callback(scan):
     # Fit the line
     ## convert points to pcl type
     points = np.array(points, dtype=np.float32)
-    pcl_points = np.concatenate((points, np.zeros((len(points), 1))), axis=1)    
-    p = pcl.PointCloud(np.array(pcl_points, dtype=np.float32))
-    
-    ## create a segmenter object
-    seg = p.make_segmenter()
-    seg.set_model_type(pcl.SACMODEL_LINE)
-    seg.set_method_type(pcl.SAC_RANSAC)
-    seg.set_distance_threshold (0.003)
-    
-    ## apply RANSAC
-    indices, model = seg.segment()
-    print "Found", len(indices), "inliers", model
-    
-    # OpenCV line fitter - least squares
-    # line = cv2.fitLine(points, 2, 0, 0.01, 0.01)
-    # Publish detected lines so we can see them in Rviz
-    # marker_array.markers.append(get_line((line[3], line[2]), (line[1], line[0]), 1, (0,1,0)))
-    # pub.publish(marker_array)
+    pcl_points = np.concatenate((points, np.zeros((len(points), 1))), axis=1)
 
-    marker_array.markers.append(get_line((model[1], model[0]), (model[4], model[3]), 0))
+    id = 0
+    while len(pcl_points) > 30:
+        p = pcl.PointCloud(np.array(pcl_points, dtype=np.float32))
+        ## create a segmenter object
+        seg = p.make_segmenter()
+        seg.set_model_type(pcl.SACMODEL_LINE)
+        seg.set_method_type(pcl.SAC_RANSAC)
+        seg.set_distance_threshold (0.003)
+
+        ## apply RANSAC
+        indices, model = seg.segment()
+        print "Found", len(indices), "inliers", model
+
+        if len(indices) < 20:
+            break
+
+        next_points = []
+        indices = set(indices)
+        for index, point in enumerate(pcl_points):
+            if index not in indices:
+                next_points.append(point)
+
+        pcl_points = np.array(next_points, dtype=np.float32)
+
+        # OpenCV line fitter - least squares
+        # line = cv2.fitLine(points, 2, 0, 0.01, 0.01)
+        # Publish detected lines so we can see them in Rviz
+        # marker_array.markers.append(get_line((line[3], line[2]), (line[1], line[0]), 1, (0,1,0)))
+        # pub.publish(marker_array)
+
+        id += 1
+        marker_array.markers.append(get_line((model[1], model[0]), (model[4], model[3]), id))
+
     pub.publish(marker_array)
       
 
