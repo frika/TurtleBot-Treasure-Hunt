@@ -1,15 +1,19 @@
 #!/usr/bin/env python
 import rospy, pcl_ros, tf
 from sensor_msgs.msg import LaserScan
-from geometry_msgs.msg import Point
+from geometry_msgs.msg import Point, Quaternion
 from visualization_msgs.msg import MarkerArray, Marker
 from nav_msgs.msg import OccupancyGrid, Odometry
 
 import cv2, math, pcl
 import numpy as np
+from math import sqrt
 
 pub = rospy.Publisher('/slam_debug', MarkerArray)
-
+pub_odom = rospy.Publisher('/odom', Odometry)
+br = tf.TransformBroadcaster()
+pre_lines = []
+pose = (0,0,0)
 
 def get_line(p1, v1, id_, color=(0,0,1)):
     marker = Marker()
@@ -60,10 +64,10 @@ def laser_callback(scan):
     points = np.array(points, dtype=np.float32)
     pcl_points = np.concatenate((points, np.zeros((len(points), 1))), axis=1)
 
-    min_pcl_points = int(rospy.get_param('min pcl points'))
+    cur_lines = []
     min_inliers = int(rospy.get_param('min inliers'))
     id = 0
-    while len(pcl_points) > min_pcl_points:
+    while len(pcl_points) >= min_inliers:
         p = pcl.PointCloud(np.array(pcl_points, dtype=np.float32))
         ## create a segmenter object
         seg = p.make_segmenter()
@@ -73,7 +77,7 @@ def laser_callback(scan):
 
         ## apply RANSAC
         indices, model = seg.segment()
-        print "Found", len(indices), "inliers", model
+        # print "Found", len(indices), "inliers", model
 
         if len(indices) < min_inliers:
             break
@@ -94,6 +98,87 @@ def laser_callback(scan):
 
         id += 1
         marker_array.markers.append(get_line((model[1], model[0]), (model[4], model[3]), id))
+        v1 = (0,0,1)
+        v2 = (model[4], model[3], 0)
+        unit_vector = np.cross(v1,v2) / (sqrt(np.dot(v1,v1))*sqrt(np.dot(v2,v2)))
+        v3 = (model[1], model[0], 0)
+        vector_magnitude = np.dot(v3, unit_vector)
+        vector = unit_vector * vector_magnitude
+        # print "vector:", vector
+        # print "vector length:",sqrt(np.dot(vector,vector))
+        cur_lines.append((vector[0], vector[1]))
+
+    global br
+    global pre_lines
+    match_pairs = []
+    # max_angle = rospy.get_param("max delta angle")
+    max_delta_angle = 0.3
+    # max_len_diff = rospy.get_param("max len diff")
+    max_len_diff = 0.3
+    for v1 in pre_lines:
+        for v2 in cur_lines:
+            v1_len = sqrt(np.dot(v1,v1))
+            v2_len = sqrt(np.dot(v2,v2))
+            delta_len = v1_len - v2_len
+            if abs(delta_len) < max_len_diff:
+                pre_angle = math.atan2(v1[1], v1[0])
+                cur_angle = math.atan2(v2[1], v2[0])
+                delta_angle = pre_angle - cur_angle
+                if abs(delta_angle) < max_delta_angle:
+                    # print "current angle:", cur_angle
+                    # print "pre_angle:", pre_angle
+                    avg_angle = (pre_angle + cur_angle) / 2
+                    match_pairs.append((avg_angle, delta_angle, delta_len))
+
+    pre_lines = cur_lines
+    global pose
+    pre_x, pre_y, pre_orientation = pose[0], pose[1], pose[2]
+    delta_angle_sum = 0
+    delta_translation_sum = 0
+    if len(match_pairs) > 0:
+        print "Found",len(match_pairs),"match"
+        actual_used_pairs_for_length = 0
+        for i,pair in enumerate(match_pairs):
+            delta_angle_sum += pair[1]
+            # print "Delta angle",i,":",pair[1]
+            # print "Delta vector length:",pair[2]
+            delta_len = pair[2]
+            print "avg angle between vector and robot:",pair[0]
+            if abs(abs(pair[0]) - (math.pi/2)) > 0.2:
+                delta_translation = delta_len / math.cos(pair[0])
+                print "Used Delta translation:", delta_translation
+                delta_translation_sum += delta_translation
+                actual_used_pairs_for_length += 1
+
+        avg_delta_angle = delta_angle_sum / len(match_pairs)
+        avg_delta_translation = delta_translation_sum / actual_used_pairs_for_length
+
+        # print "avg delta angle:", avg_delta_angle
+        # print "avg delta translation:", avg_delta_translation
+        cur_x = pre_x + avg_delta_translation * math.cos(pre_orientation)
+        cur_y = pre_y + avg_delta_translation * math.sin(pre_orientation)
+        cur_orientation = pre_orientation + avg_delta_angle
+        pose = (cur_x, cur_y, cur_orientation)
+    else:
+        print "Failed to match"
+
+    print "Pose in odom:", pose
+    t = tf.transformations
+    # Broadcast tf
+    br.sendTransform((-pose[0], -pose[1], 0),
+                     t.quaternion_from_euler(0, 0, -pose[2]),
+                     rospy.Time.now(),
+                     'odom_visual',
+                     'base_footprint')
+    # Publish Odometry
+    odom = Odometry()
+    odom.header.stamp = rospy.Time.now()
+    odom.header.frame_id = 'base_footprint'
+    odom.child_frame_id = 'odom_visual'
+    odom.pose.pose.position = Point(-pose[0],-pose[1],0)
+    q = t.quaternion_from_euler(0, 0, -pose[2])
+    odom.pose.pose.orientation = Quaternion(q[0],q[1],q[2],q[3])
+    pub_odom.publish(odom)
 
     pub.publish(marker_array)
 
